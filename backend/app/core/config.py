@@ -20,5 +20,9 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
+    SECRET_KEY: str = "KEY HERE"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
 settings = Settings()
 
