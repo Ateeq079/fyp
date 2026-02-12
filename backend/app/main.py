@@ -5,18 +5,22 @@ from sqlalchemy import text
 
 
 from .db.deps import get_db
+from .db.init_db import init_db
 from .core.config import settings
 from .core.exceptions import general_exception_handler, validation_exception_handler
 from .api.v1.routes import api_router 
 
 from fastapi.middleware.cors import CORSMiddleware
 
-
-
 app = FastAPI(
     title="Smart PDF Reader API",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
 app.include_router(api_router)
 
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
