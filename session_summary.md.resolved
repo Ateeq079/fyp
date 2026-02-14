@@ -1,0 +1,620 @@
+# LexiNote Development Session Summary
+**Date:** February 13, 2026  
+**Focus:** Social Authentication (Google Sign-In) & Material 3 UI Redesign
+
+---
+
+## 📋 Table of Contents
+1. [What We Accomplished](#what-we-accomplished)
+2. [Technical Concepts & New Learnings](#technical-concepts--new-learnings)
+3. [Issues Faced & Solutions](#issues-faced--solutions)
+4. [Implementation Details](#implementation-details)
+5. [Project Structure](#project-structure)
+6. [Next Steps](#next-steps)
+
+---
+
+## ✅ What We Accomplished
+
+### Backend (FastAPI)
+- ✅ Implemented Google OAuth 2.0 authentication endpoint
+- ✅ Updated User model for social authentication support
+- ✅ Added JWT token generation for authenticated users
+- ✅ Removed Apple Sign-In placeholder (per user request)
+- ✅ Fixed routing issues with social auth endpoints
+
+### Frontend (Flutter)
+- ✅ Created Material 3 authentication flow (Login & Signup pages)
+- ✅ Integrated Google Sign-In SDK
+- ✅ Implemented secure token storage
+- ✅ Designed comprehensive Home Page with:
+  - Bottom navigation (Documents, Quizzes, Highlights, Profile)
+  - Navigation drawer with logout
+  - Placeholder content for future features
+- ✅ Configured Firebase for Android
+- ✅ Set up proper page navigation flow
+
+### Configuration
+- ✅ Firebase project setup and Android app registration
+- ✅ SHA-1 fingerprint configuration
+- ✅ Google Services plugin integration
+- ✅ Backend network configuration for Android emulator access
+
+---
+
+## 🎓 Technical Concepts & New Learnings
+
+### 1. **OAuth 2.0 Authentication Flow**
+
+**What is OAuth 2.0?**
+OAuth 2.0 is an authorization framework that allows third-party applications to access user information without exposing passwords.
+
+**How Google Sign-In Works:**
+```
+┌─────────┐      ┌──────────┐      ┌─────────┐      ┌──────────┐
+│  User   │─────▶│ Flutter  │─────▶│ Google  │─────▶│ Backend  │
+│         │◀─────│   App    │◀─────│  Auth   │◀─────│   API    │
+└─────────┘      └──────────┘      └─────────┘      └──────────┘
+    1. Click       2. Request      3. User         4. Verify
+    Google         sign-in from    approves &      token &
+    button         Google SDK      returns ID      create user
+                                   token
+```
+
+**Key Components:**
+- **ID Token**: A JWT (JSON Web Token) containing user information
+- **Token Verification**: Backend validates the token with Google's servers
+- **User Linking**: Backend creates/links user in PostgreSQL database
+
+### 2. **Firebase vs Backend Database**
+
+**Common Confusion:** "Why Firebase if we use PostgreSQL?"
+
+**Answer:**
+- **Firebase**: Only handles **identity verification** (like checking an ID card)
+- **PostgreSQL**: Stores **user data** (like a membership database)
+
+**Analogy:**
+```
+Firebase = Security Guard (checks ID)
+Your Backend = Database (stores member info)
+```
+
+### 3. **Android Emulator Networking**
+
+**Special Address: `10.0.2.2`**
+- Android emulator uses `10.0.2.2` to access host machine's `localhost`
+- However, this didn't work due to server binding to `127.0.0.1`
+
+**Solution:**
+- Server must bind to `0.0.0.0` (all network interfaces)
+- Use actual host IP `192.168.1.24` in app configuration
+
+### 4. **Material 3 Design System**
+
+**Key Concepts:**
+- **Color Scheme**: Derived from single seed color (`#6750A4`)
+- **Component Updates**: `FilledButton`, `OutlinedButton`, `NavigationBar`
+- **Typography**: Consistent text styles via theme
+- **Adaptive**: Automatic dark mode support
+
+**Material 3 vs Material 2:**
+| Material 2 | Material 3 |
+|------------|------------|
+| `ElevatedButton` | `FilledButton` |
+| `BottomNavigationBar` | `NavigationBar` |
+| Fixed elevation | Dynamic elevation |
+| Manual theming | Seed color theming |
+
+### 5. **Flutter State Management**
+
+**StatefulWidget vs StatelessWidget:**
+- **Stateless**: UI doesn't change (static content)
+- **Stateful**: UI reacts to data changes (forms, loading states)
+
+**Example from our code:**
+```dart
+// State variables
+bool _isLoading = false;
+bool _isPasswordVisible = false;
+
+// Update UI when these change
+setState(() => _isLoading = true);
+```
+
+### 6. **JWT Authentication**
+
+**What is JWT?**
+JSON Web Token - a secure way to transmit information between parties.
+
+**Structure:**
+```
+header.payload.signature
+```
+
+**In our app:**
+1. User logs in → Backend creates JWT with user ID
+2. JWT stored securely in Flutter app
+3. Future API requests include JWT in headers
+4. Backend validates JWT to identify user
+
+---
+
+## 🐛 Issues Faced & Solutions
+
+### Issue 1: Backend Connection Timeout
+**Problem:**
+```
+Connection timed out, address = 10.0.2.2:8000
+```
+
+**Root Causes:**
+1. Server bound to `127.0.0.1` instead of `0.0.0.0`
+2. Android emulator's `10.0.2.2` routing didn't work
+
+**Solution:**
+```bash
+# Restart server with correct binding
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Changed Flutter app to use host IP:**
+```dart
+final String baseUrl = 'http://192.168.1.24:8000/api/v1';
+```
+
+### Issue 2: Google Sign-In Error Code 10
+**Problem:**
+```
+ApiException: 10 (DEVELOPER_ERROR)
+```
+
+**Root Cause:**
+Firebase configuration incomplete - SHA-1 fingerprint not added.
+
+**Solution Steps:**
+1. Generate SHA-1 fingerprint:
+```bash
+keytool -list -v -keystore ~/.android/debug.keystore \
+  -alias androiddebugkey -storepass android -keypass android
+```
+
+2. Add SHA-1 to Firebase Console:
+   - Project Settings → Your apps → SHA certificate fingerprints
+   - Add fingerprint: `C7:B3:AA:CB:DD:E9:24:B3:35:27:0C:DC:B1:FB:92:BF:53:78:61:50`
+
+3. Enable Google Sign-In in Firebase Authentication
+
+4. Download updated `google-services.json`
+
+5. Complete rebuild:
+```bash
+flutter clean
+flutter run
+```
+
+### Issue 3: Backend 404 Error for Google Login
+**Problem:**
+```json
+{"detail":"Not Found"}
+```
+
+**Root Cause:**
+Duplicate `/login` in route path:
+- Router prefix: `/login`
+- Endpoint path: `/login/google`
+- **Result**: `/api/v1/login/login/google` ❌
+
+**Solution:**
+```python
+# Before
+@router.post("/login/google", ...)
+
+# After
+@router.post("/google", ...)
+```
+
+**Final URL:** `/api/v1/login/google` ✅
+
+### Issue 4: Empty OAuth Client in google-services.json
+**Problem:**
+```json
+"oauth_client": []
+```
+
+**Root Cause:**
+Google Sign-In not enabled in Firebase Authentication.
+
+**Solution:**
+1. Firebase Console → Authentication → Sign-in method
+2. Enable "Google" provider
+3. Download new `google-services.json`
+
+### Issue 5: Missing Flutter Dependencies
+**Problem:**
+```
+Target of URI doesn't exist: 'package:http/http.dart'
+```
+
+**Root Cause:**
+Added dependencies to [pubspec.yaml](file:///home/oxateeq/fyp/frontend/flutter_application/pubspec.yaml) but didn't install them.
+
+**Solution:**
+```bash
+flutter pub get
+```
+
+---
+
+## 🔧 Implementation Details
+
+### Backend Architecture
+
+#### 1. Database Schema Updates
+**File:** [backend/app/models/user.py](file:///home/oxateeq/fyp/backend/app/models/user.py)
+
+```python
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password = Column(String, nullable=True)  # Nullable for social users
+    google_id = Column(String, unique=True, nullable=True, index=True)
+    apple_id = Column(String, unique=True, nullable=True, index=True)
+    image_url = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+```
+
+**Key Changes:**
+- [password](file:///home/oxateeq/fyp/backend/app/core/security.py#25-30) is now nullable (social users don't have passwords)
+- Added `google_id`, `apple_id` for social account linking
+- Added `image_url` for profile pictures
+
+#### 2. Google Login Endpoint
+**File:** [backend/app/api/v1/social.py](file:///home/oxateeq/fyp/backend/app/api/v1/social.py)
+
+**Flow:**
+```python
+1. Receive ID token from Flutter
+2. Verify token with Google's servers
+   ├─ Valid → Extract user info (email, google_id, picture)
+   └─ Invalid → Return 400 error
+3. Check if user exists in database
+   ├─ Exists → Update google_id if missing
+   └─ New → Create user record
+4. Generate JWT token
+5. Return access token to app
+```
+
+**Code Snippet:**
+```python
+@router.post("/google", response_model=SocialLoginResponse)
+def login_google(login_request: SocialLoginRequest, db: Session = Depends(deps.get_db)):
+    # Verify Google token
+    id_info = id_token.verify_oauth2_token(
+        login_request.token, 
+        google_requests.Request()
+    )
+    
+    google_id = id_info.get("sub")
+    email = id_info.get("email")
+    picture = id_info.get("picture")
+    
+    # Get or create user
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            password=None,
+            google_id=google_id,
+            image_url=picture,
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+    
+    # Generate JWT
+    access_token = security.create_access_token(user.id)
+    return {"access_token": access_token, "token_type": "bearer"}
+```
+
+### Frontend Architecture
+
+#### 1. Authentication Service
+**File:** [frontend/flutter_application/lib/services/auth_service.dart](file:///home/oxateeq/fyp/frontend/flutter_application/lib/services/auth_service.dart)
+
+**Responsibilities:**
+- Handle HTTP requests to backend
+- Manage Google Sign-In flow
+- Store JWT tokens securely
+- Handle logout
+
+**Key Methods:**
+```dart
+class AuthService {
+  // Backend URL
+  final String baseUrl = 'http://192.168.1.24:8000/api/v1';
+  
+  // Secure storage for tokens
+  final _storage = const FlutterSecureStorage();
+  
+  // Google Sign-In instance
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  
+  // Email/password registration
+  Future<bool> register(String email, String password) {...}
+  
+  // Email/password login
+  Future<bool> login(String email, String password) {...}
+  
+  // Google Sign-In
+  Future<bool> googleLogin() async {
+    // 1. Trigger Google Sign-In
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    
+    // 2. Get ID token
+    final GoogleSignInAuthentication googleAuth = 
+        await googleUser.authentication;
+    final String? idToken = googleAuth.idToken;
+    
+    // 3. Send token to backend
+    final response = await http.post(
+      Uri.parse('$baseUrl/login/google'),
+      body: json.encode({'token': idToken}),
+    );
+    
+    // 4. Store JWT token
+    await _storage.write(key: 'access_token', value: data['access_token']);
+  }
+}
+```
+
+#### 2. Material 3 UI Components
+
+**Signup Page Features:**
+- Form validation
+- Password visibility toggles
+- Loading states
+- Error handling with SnackBars
+
+**Example: Password Field with Visibility Toggle**
+```dart
+TextFormField(
+  controller: _passwordController,
+  obscureText: !_isPasswordVisible,
+  decoration: InputDecoration(
+    labelText: 'Password',
+    prefixIcon: const Icon(Icons.lock_outline),
+    suffixIcon: IconButton(
+      icon: Icon(
+        _isPasswordVisible 
+          ? Icons.visibility_off_outlined
+          : Icons.visibility_outlined,
+      ),
+      onPressed: () {
+        setState(() {
+          _isPasswordVisible = !_isPasswordVisible;
+        });
+      },
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+  ),
+  validator: (value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your password';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  },
+)
+```
+
+#### 3. Home Page Structure
+
+**File:** [frontend/flutter_application/lib/pages/home_page.dart](file:///home/oxateeq/fyp/frontend/flutter_application/lib/pages/home_page.dart)
+
+**Components:**
+```
+HomePage
+├── AppBar (with search & notifications)
+├── Drawer (navigation menu)
+├── Body (4 tab views)
+│   ├── Documents (grid of PDFs)
+│   ├── Quizzes (list of quizzes)
+│   ├── Highlights (saved text)
+│   └── Profile (user info & settings)
+├── NavigationBar (bottom tabs)
+└── FloatingActionButton (upload PDF)
+```
+
+### Android Configuration
+
+#### 1. Gradle Setup
+**File:** [android/settings.gradle.kts](file:///home/oxateeq/fyp/frontend/flutter_application/android/settings.gradle.kts)
+
+```kotlin
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "8.11.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+```
+
+**File:** [android/app/build.gradle.kts](file:///home/oxateeq/fyp/frontend/flutter_application/android/app/build.gradle.kts)
+
+```kotlin
+plugins {
+    id("com.android.application")
+    id("kotlin-android")
+    id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")  // ← Added this
+}
+```
+
+#### 2. Firebase Configuration
+**File:** `android/app/google-services.json`
+
+This file contains:
+- Project ID
+- Client IDs
+- API keys
+- OAuth client configurations
+
+**Important:** Must be downloaded from Firebase Console after:
+1. Adding SHA-1 fingerprint
+2. Enabling Google Sign-In provider
+
+---
+
+## 📁 Project Structure
+
+```
+fyp/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── v1/
+│   │   │   │   ├── routes.py         # Main router
+│   │   │   │   ├── login.py          # Email/password login
+│   │   │   │   ├── users.py          # User registration
+│   │   │   │   ├── social.py         # Google OAuth
+│   │   │   │   └── quiz.py           # Quiz CRUD
+│   │   │   └── deps.py               # Dependencies (get_db, auth)
+│   │   ├── core/
+│   │   │   ├── config.py             # Settings
+│   │   │   ├── security.py           # JWT & password hashing
+│   │   │   └── exceptions.py         # Error handlers
+│   │   ├── models/
+│   │   │   └── user.py               # User SQLAlchemy model
+│   │   ├── schemas/
+│   │   │   ├── user.py               # User Pydantic schemas
+│   │   │   └── social.py             # Social auth schemas
+│   │   └── main.py                   # FastAPI app
+│   └── .env                          # Environment variables
+│
+└── frontend/flutter_application/
+    ├── lib/
+    │   ├── main.dart                 # App entry point
+    │   ├── services/
+    │   │   └── auth_service.dart     # Authentication logic
+    │   └── pages/
+    │       ├── login_page.dart       # Login UI
+    │       ├── signup_page.dart      # Signup UI
+    │       └── home_page.dart        # Main app UI
+    ├── android/
+    │   ├── app/
+    │   │   ├── build.gradle.kts      # App-level Gradle
+    │   │   └── google-services.json  # Firebase config
+    │   └── settings.gradle.kts       # Project-level Gradle
+    └── pubspec.yaml                  # Flutter dependencies
+```
+
+---
+
+## 🚀 Next Steps
+
+### Immediate Tasks
+1. **User Profile Management**
+   - Display actual user email and profile picture
+   - Implement edit profile functionality
+
+2. **Document Upload**
+   - Implement PDF file picker
+   - Create backend endpoint for file upload
+   - Store PDFs in cloud storage (AWS S3 or similar)
+
+3. **PDF Processing**
+   - Extract text from PDFs
+   - Generate highlights
+   - Create flashcards
+
+4. **Quiz Generation**
+   - Use AI/ML to generate quiz questions from PDF content
+   - Implement quiz-taking functionality
+   - Track quiz scores
+
+### Technical Improvements
+1. **Error Handling**
+   - Add retry logic for network requests
+   - Better error messages for users
+   - Logging for debugging
+
+2. **Testing**
+   - Unit tests for backend endpoints
+   - Widget tests for Flutter UI
+   - Integration tests for authentication flow
+
+3. **Performance**
+   - Implement pagination for document lists
+   - Cache API responses
+   - Lazy loading for images
+
+4. **Security**
+   - Implement refresh tokens
+   - Add rate limiting to API
+   - Enable HTTPS in production
+
+### Feature Enhancements
+1. **Collaborative Features**
+   - Share documents with other users
+   - Collaborative highlights
+   - Study groups
+
+2. **Analytics**
+   - Track study time
+   - Quiz performance metrics
+   - Progress tracking
+
+3. **Notifications**
+   - Quiz reminders
+   - New document alerts
+   - Study streak notifications
+
+---
+
+## 📚 Resources & Documentation
+
+### Firebase
+- [Firebase Console](https://console.firebase.google.com/)
+- [Firebase Android Setup Guide](https://firebase.google.com/docs/android/setup)
+
+### Flutter
+- [Google Sign-In Package](https://pub.dev/packages/google_sign_in)
+- [Flutter Secure Storage](https://pub.dev/packages/flutter_secure_storage)
+- [Material 3 Design](https://m3.material.io/)
+
+### Backend
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Google OAuth 2.0 Guide](https://developers.google.com/identity/protocols/oauth2)
+- [JWT Introduction](https://jwt.io/introduction)
+
+---
+
+## 🎯 Key Takeaways
+
+1. **OAuth 2.0** separates identity verification (Firebase) from data storage (PostgreSQL)
+2. **Android emulator** networking requires special configuration (`0.0.0.0` binding)
+3. **Material 3** provides modern, consistent UI with minimal code
+4. **SHA-1 fingerprint** is mandatory for Google Sign-In on Android
+5. **Form validation** and **loading states** are critical for good UX
+6. **Secure token storage** protects user credentials
+7. **Navigation patterns** should use `pushAndRemoveUntil` for auth flows
+
+---
+
+## ✨ Summary
+
+Today's session successfully implemented a production-ready social authentication system for LexiNote. We:
+- Built a secure OAuth 2.0 flow with Google
+- Created a beautiful Material 3 UI
+- Solved complex networking and configuration issues
+- Established a solid foundation for future features
+
+The app now has professional authentication and a polished user interface ready for the next phase of development!

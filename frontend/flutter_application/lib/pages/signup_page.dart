@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/custom_email_field.dart';
+import '../widgets/custom_password_field.dart';
+import '../widgets/custom_filled_button.dart';
+import '../widgets/custom_outlined_button.dart';
 import 'login_page.dart';
 import 'home_page.dart';
 
@@ -15,8 +19,6 @@ class _SignupPageState extends State<SignupPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
 
   @override
@@ -122,90 +124,18 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 48),
 
                   // Email Field
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'Enter your email',
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
+                  CustomEmailField(controller: _emailController),
                   const SizedBox(height: 16),
 
                   // Password Field
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: !_isPasswordVisible,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'Enter your password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordVisible
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
+                  CustomPasswordField(controller: _passwordController),
                   const SizedBox(height: 16),
 
                   // Confirm Password Field
-                  TextFormField(
+                  CustomPasswordField(
                     controller: _confirmPasswordController,
-                    obscureText: !_isConfirmPasswordVisible,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm Password',
-                      hintText: 'Re-enter your password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isConfirmPasswordVisible
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isConfirmPasswordVisible =
-                                !_isConfirmPasswordVisible;
-                          });
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    labelText: 'Confirm Password',
+                    hintText: 'Re-enter your password',
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please confirm your password';
@@ -219,27 +149,10 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 32),
 
                   // Sign Up Button
-                  FilledButton(
-                    onPressed: _isLoading ? null : _handleSignup,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(fontSize: 16),
-                          ),
+                  CustomFilledButton(
+                    text: 'Create Account',
+                    onPressed: _handleSignup,
+                    isLoading: _isLoading,
                   ),
                   const SizedBox(height: 24),
 
@@ -265,21 +178,16 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 24),
 
                   // Google Sign In Button
-                  OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _handleGoogleSignIn,
+                  CustomOutlinedButton(
+                    text: 'Continue with Google',
+                    onPressed: _handleGoogleSignIn,
+                    isLoading: _isLoading,
                     icon: Image.network(
-                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                      'https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png',
                       height: 24,
                       width: 24,
                       errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.g_mobiledata, size: 24),
-                    ),
-                    label: const Text('Continue with Google'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          const Icon(Icons.login, size: 24),
                     ),
                   ),
                   const SizedBox(height: 24),
