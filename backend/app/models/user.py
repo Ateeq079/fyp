@@ -11,7 +11,6 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password = Column(String, nullable=True)  # Start nullable for social auth
     google_id = Column(String, unique=True, nullable=True)
-    apple_id = Column(String, unique=True, nullable=True)
     image_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
