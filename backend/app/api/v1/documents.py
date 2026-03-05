@@ -126,3 +126,49 @@ def delete_document(
     storage_service.delete_file(doc.file_path)
     db.delete(doc)
     db.commit()
+
+
+@router.put("/{document_id}/file", response_model=DocumentResponse)
+async def replace_document_file(
+    document_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Replace an existing document's PDF with an annotated version."""
+    doc = (
+        db.query(Document)
+        .filter(Document.id == document_id, Document.user_id == current_user.id)
+        .first()
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Only PDF files are accepted.",
+        )
+
+    data = await file.read()
+    if len(data) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File exceeds the 50 MB limit.",
+        )
+
+    # Delete old file and save new annotated version
+    storage_service.delete_file(doc.file_path)
+    new_file_path, _ = storage_service.save_file(
+        user_id=current_user.id,
+        original_filename=doc.original_filename,
+        data=data,
+    )
+
+    doc.file_path = new_file_path
+    doc.file_size = len(data)
+    db.commit()
+    db.refresh(doc)
+
+    return _build_response(request, doc)

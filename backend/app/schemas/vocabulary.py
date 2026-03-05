@@ -1,17 +1,19 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
+from datetime import datetime
 
-class VocabularyBase(BaseModel):
+
+class VocabularyCreate(BaseModel):
     word: str
-    definition: Optional[str] = None
     context_sentence: Optional[str] = None
+    document_id: int
 
-class VocabularyCreate(VocabularyBase):
-    highlight_id: int
 
-class Vocabulary(VocabularyBase):
+class VocabularyResponse(BaseModel):
     id: int
-    highlight_id: int
+    word: str
+    context_sentence: Optional[str] = None
+    document_id: int
+    created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

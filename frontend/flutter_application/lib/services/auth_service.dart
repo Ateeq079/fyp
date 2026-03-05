@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import '../main.dart';
+import '../pages/login_page.dart';
 
 class AuthService {
   // Replace with your backend URL.
@@ -100,6 +102,14 @@ class AuthService {
   Future<void> logout() async {
     await _storage.delete(key: 'access_token');
     await _googleSignIn.signOut();
+  }
+
+  Future<void> handleUnauthorized() async {
+    await logout();
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   Future<String?> getToken() async {

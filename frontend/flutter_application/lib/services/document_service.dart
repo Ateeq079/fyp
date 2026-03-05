@@ -44,6 +44,10 @@ class DocumentService {
 
       if (response.statusCode == 201) {
         return DocumentModel.fromJson(json.decode(response.body));
+      } else if (response.statusCode == 401) {
+        await AuthService().handleUnauthorized();
+        debugPrint('Upload failed: Unauthorized. Logging out.');
+        return null;
       } else {
         debugPrint('Upload failed [${response.statusCode}]: ${response.body}');
         return null;
@@ -72,6 +76,10 @@ class DocumentService {
         return data
             .map((e) => DocumentModel.fromJson(e as Map<String, dynamic>))
             .toList();
+      } else if (response.statusCode == 401) {
+        await AuthService().handleUnauthorized();
+        debugPrint('List documents failed: Unauthorized. Logging out.');
+        return [];
       } else {
         debugPrint('List documents failed [${response.statusCode}]');
         return [];
@@ -94,6 +102,10 @@ class DocumentService {
         Uri.parse('$_baseUrl/documents/$documentId'),
         headers: headers,
       );
+      if (response.statusCode == 401) {
+        await AuthService().handleUnauthorized();
+        return false;
+      }
       return response.statusCode == 204;
     } catch (e) {
       debugPrint('Delete document error: $e');

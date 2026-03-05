@@ -25,3 +25,6 @@ class User(Base):
         "Flashcard", back_populates="user", cascade="all, delete-orphan"
     )
     quizzes = relationship("Quiz", back_populates="user", cascade="all, delete-orphan")
+    vocabulary = relationship(
+        "Vocabulary", back_populates="user", cascade="all, delete-orphan"
+    )

@@ -8,12 +8,15 @@ void main() {
   runApp(const LexiNoteApp());
 }
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class LexiNoteApp extends StatelessWidget {
   const LexiNoteApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'LexiNote',
       theme: ThemeData(

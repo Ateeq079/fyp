@@ -38,6 +38,8 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   google_sign_in: ^6.1.6
   file_picker: ^8.0.0
+  syncfusion_flutter_pdfviewer: ^32.2.8
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

@@ -19,3 +19,6 @@ class Document(Base):
     highlights = relationship(
         "Highlight", back_populates="document", cascade="all, delete-orphan"
     )
+    vocabulary = relationship(
+        "Vocabulary", back_populates="document", cascade="all, delete-orphan"
+    )

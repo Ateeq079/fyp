@@ -202,6 +202,7 @@ class _HomePageState extends State<HomePage> {
 
     setState(() => _uploading = true);
 
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

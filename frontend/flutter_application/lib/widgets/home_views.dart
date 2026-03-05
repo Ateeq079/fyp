@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/document_model.dart';
 import '../services/document_service.dart';
+import '../pages/pdf_viewer_page.dart';
 import 'document_card.dart';
 import 'stat_card.dart';
 
@@ -182,10 +183,10 @@ class DocumentsViewState extends State<DocumentsView> {
                     title: doc.title,
                     subtitle: doc.fileSizeFormatted,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Opening "${doc.title}"…'),
-                          behavior: SnackBarBehavior.floating,
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PdfViewerPage(document: doc),
                         ),
                       );
                     },
