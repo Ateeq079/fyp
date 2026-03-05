@@ -2,13 +2,25 @@ import 'package:flutter/material.dart';
 
 class DocumentCard extends StatelessWidget {
   final int index;
+  final String? title;
+  final String? subtitle;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
-  const DocumentCard({super.key, required this.index, this.onTap});
+  const DocumentCard({
+    super.key,
+    required this.index,
+    this.title,
+    this.subtitle,
+    this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final displayTitle = title ?? 'Document ${index + 1}';
+    final displaySubtitle = subtitle ?? '';
 
     return Card(
       elevation: 0,
@@ -19,6 +31,7 @@ class DocumentCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
@@ -40,18 +53,19 @@ class DocumentCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Sample Document ${index + 1}',
+                displayTitle,
                 style: Theme.of(context).textTheme.titleSmall,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const Spacer(),
-              Text(
-                '2 days ago',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              if (displaySubtitle.isNotEmpty)
+                Text(
+                  displaySubtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
             ],
           ),
         ),

@@ -1,57 +1,201 @@
 import 'package:flutter/material.dart';
+import '../models/document_model.dart';
+import '../services/document_service.dart';
 import 'document_card.dart';
 import 'stat_card.dart';
 
-// Documents View
-class DocumentsView extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Documents View — real data from API
+// ─────────────────────────────────────────────────────────────────────────────
+
+class DocumentsView extends StatefulWidget {
   const DocumentsView({super.key});
 
   @override
+  State<DocumentsView> createState() => DocumentsViewState();
+}
+
+class DocumentsViewState extends State<DocumentsView> {
+  final _service = DocumentService();
+  List<DocumentModel> _documents = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    loadDocuments();
+  }
+
+  Future<void> loadDocuments() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final docs = await _service.getDocuments();
+    if (mounted) {
+      setState(() {
+        _documents = docs;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _deleteDocument(DocumentModel doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: Text('Delete "${doc.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final ok = await _service.deleteDocument(doc.id);
+      if (mounted) {
+        if (ok) {
+          setState(() => _documents.removeWhere((d) => d.id == doc.id));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${doc.title}" deleted'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to delete document'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recent Documents',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Your uploaded PDFs will appear here',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_outlined, size: 64),
+            const SizedBox(height: 16),
+            Text(_error!),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: loadDocuments,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: loadDocuments,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'My Documents',
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.all(16.0),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => DocumentCard(
-                index: index,
-                onTap: () {
-                  // TODO: Open document
-                },
+                  const SizedBox(height: 4),
+                  Text(
+                    _documents.isEmpty
+                        ? 'Upload a PDF to get started'
+                        : '${_documents.length} document${_documents.length == 1 ? '' : 's'}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-              childCount: 6, // Placeholder count
             ),
           ),
-        ),
-      ],
+          if (_documents.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.upload_file_outlined,
+                      size: 80,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No documents yet',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap "Upload PDF" to add your first document',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.75,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final doc = _documents[index];
+                  return DocumentCard(
+                    index: index,
+                    title: doc.title,
+                    subtitle: doc.fileSizeFormatted,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Opening "${doc.title}"…'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    onLongPress: () => _deleteDocument(doc),
+                  );
+                }, childCount: _documents.length),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -90,7 +234,12 @@ class QuizzesView extends StatelessWidget {
               subtitle: Text('From Sample Document ${index + 1}'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                // TODO: Open quiz
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Opening Quiz ${index + 1}…'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               },
             ),
           ),
@@ -213,7 +362,12 @@ class ProfileView extends StatelessWidget {
           title: const Text('Edit Profile'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            // TODO: Edit profile
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Edit Profile coming soon'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           },
         ),
         ListTile(
@@ -221,7 +375,12 @@ class ProfileView extends StatelessWidget {
           title: const Text('Privacy & Security'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            // TODO: Privacy settings
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Privacy & Security coming soon'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           },
         ),
         ListTile(
@@ -229,7 +388,12 @@ class ProfileView extends StatelessWidget {
           title: const Text('Appearance'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            // TODO: Appearance settings
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Appearance settings coming soon'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           },
         ),
       ],

@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "Smart PDF Reader API"
     DEBUG: bool = False
+    API_V1_STR: str = "/api/v1"
+    UPLOAD_DIR: str = "/home/oxateeq/fyp/uploads"
 
     ALLOWED_ORIGINS: List[str] = []
   

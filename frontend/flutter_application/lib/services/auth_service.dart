@@ -8,7 +8,7 @@ class AuthService {
   // Replace with your backend URL.
   // For Android Emulator use 10.0.2.2 usually, but for physical device use your PC's IP.
   // iOS Simulator uses localhost.
-  final String baseUrl = 'http://192.168.1.24:8000/api/v1';
+  final String baseUrl = 'http://192.168.1.8:8000/api/v1';
   final _storage = const FlutterSecureStorage();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     // scopes: ['email'], // explicit scopes if needed
@@ -104,5 +104,35 @@ class AuthService {
 
   Future<String?> getToken() async {
     return await _storage.read(key: 'access_token');
+  }
+
+  /// Returns true if there is a valid, non-expired JWT token stored.
+  Future<bool> isLoggedIn() async {
+    final token = await _storage.read(key: 'access_token');
+    if (token == null || token.isEmpty) return false;
+    try {
+      // Decode payload without a library (JWT = header.payload.sig, base64url encoded)
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+
+      // Pad base64 to a multiple of 4
+      String pad(String s) {
+        final rem = s.length % 4;
+        return rem == 0 ? s : s + '=' * (4 - rem);
+      }
+
+      final payloadJson = utf8.decode(base64Url.decode(pad(parts[1])));
+      final payload = json.decode(payloadJson) as Map<String, dynamic>;
+      final exp = payload['exp'] as int?;
+      if (exp == null) return false;
+
+      final expiry = DateTime.fromMillisecondsSinceEpoch(
+        exp * 1000,
+        isUtc: true,
+      );
+      return DateTime.now().toUtc().isBefore(expiry);
+    } catch (_) {
+      return false;
+    }
   }
 }

@@ -72,7 +72,11 @@ class _SignupPageState extends State<SignupPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      // TODO: Navigate to home page
+      // Navigate to Home
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const HomePage()),
+        (route) => false,
+      );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

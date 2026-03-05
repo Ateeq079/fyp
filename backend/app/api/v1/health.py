@@ -11,10 +11,5 @@ router = APIRouter(tags=["Health"])
 def health_check(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     return ResponseSchema(
-        succes=True,
-        message="API is healthy.",
-        data={"database": "connected"}
+        success=True, message="API is healthy.", data={"database": "connected"}
     )
-
-
-
