@@ -18,9 +18,6 @@ class User(Base):
     documents = relationship(
         "Document", back_populates="user", cascade="all, delete-orphan"
     )
-    highlights = relationship(
-        "Highlight", back_populates="user", cascade="all, delete-orphan"
-    )
     flashcards = relationship(
         "Flashcard", back_populates="user", cascade="all, delete-orphan"
     )

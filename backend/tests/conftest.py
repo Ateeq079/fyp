@@ -72,6 +72,11 @@ def _get_test_db() -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
+def db() -> Generator[Session, None, None]:
+    yield from _get_test_db()
+
+
+@pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
     """TestClient with get_db overridden to use SQLite."""
     app.dependency_overrides[get_db] = _get_test_db

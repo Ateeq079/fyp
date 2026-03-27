@@ -8,6 +8,7 @@ from app.models.user import User
 from app.models.vocabulary import Vocabulary
 from app.models.document import Document
 from app.schemas.vocabulary import VocabularyCreate, VocabularyResponse
+from app.services.llm_service import llm_service
 
 router = APIRouter()
 
@@ -20,8 +21,7 @@ def add_word(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Save a selected word/phrase to the user's personal dictionary."""
-    # Ensure document belongs to this user
+    """Save a word to the user's dictionary and enrich it with an AI-generated definition."""
     doc = (
         db.query(Document)
         .filter(Document.id == payload.document_id, Document.user_id == current_user.id)
@@ -30,16 +30,24 @@ def add_word(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
 
+    # Use Gemini to generate definition + context sentence
+    ai_result = llm_service.generate_word_definition(payload.word)
+
     entry = Vocabulary(
         user_id=current_user.id,
         document_id=payload.document_id,
         word=payload.word,
-        context_sentence=payload.context_sentence,
+        definition=ai_result.get("definition") if ai_result else payload.definition,
+        context_sentence=ai_result.get("context_sentence") if ai_result else payload.context_sentence,
+        source_name=ai_result.get("source_name") if ai_result else None,
+        source_url=ai_result.get("source_url") if ai_result else None,
+        related_links=ai_result.get("related_links") if ai_result else None,
     )
     db.add(entry)
     db.commit()
     db.refresh(entry)
     return entry
+
 
 
 @router.get("/", response_model=List[VocabularyResponse])

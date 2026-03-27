@@ -5,6 +5,7 @@ Tests for quiz endpoints:
   GET    /api/v1/quizzes/{id}
   DELETE /api/v1/quizzes/{id}
 """
+from unittest.mock import patch
 
 SAMPLE_QUIZ = {
     "title": "Python Basics",
@@ -58,6 +59,69 @@ def test_create_quiz_missing_title(client, auth_headers):
         client.post("/api/v1/quizzes/", json=bad, headers=auth_headers).status_code
         == 422
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Generate (AI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_generate_quiz_success(client, auth_headers, db):
+    # Create required document, vocab, and highlight manually to ensure context exists
+    from app.models.document import Document
+    from app.models.vocabulary import Vocabulary
+    from app.models.user import User
+
+    # The auth_headers fixture creates the user with "test@lexinote.app"
+    user = db.query(User).filter(User.email == "test@lexinote.app").first()
+    user_id = user.id
+
+    doc = Document(title="Test Doc", user_id=user_id, file_path="test.pdf", original_filename="test.pdf", file_size=1024)
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    vocab = Vocabulary(word="test", document_id=doc.id, user_id=user_id)
+    db.add(vocab)
+    db.commit()
+
+    mock_llm_response = [
+        {
+            "question": "What is testing?",
+            "option_a": "A process",
+            "option_b": "A food",
+            "option_c": "A car",
+            "option_d": "A dog",
+            "correct_answer": "A"
+        }
+    ]
+
+    with patch("app.api.v1.quiz.llm_service.generate_quiz_questions", return_value=mock_llm_response):
+        resp = client.post(f"/api/v1/quizzes/generate/{doc.id}", headers=auth_headers)
+        
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "Auto-generated Quiz" in data["title"]
+    assert data["total_questions"] == 1
+    assert data["questions_data"][0]["question"] == "What is testing?"
+
+
+def test_generate_quiz_no_context(client, auth_headers, db):
+    from app.models.document import Document
+    from app.models.user import User
+    
+    # We need user_id for Document creation
+    user = db.query(User).filter(User.email == "test@lexinote.app").first()
+    user_id = user.id
+
+    doc = Document(title="Empty Doc", user_id=user_id, file_path="empty.pdf", original_filename="empty.pdf", file_size=1024)
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    # Document has no vocab
+    resp = client.post(f"/api/v1/quizzes/generate/{doc.id}", headers=auth_headers)
+    assert resp.status_code == 400
+    assert "No vocabulary found" in resp.json()["detail"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

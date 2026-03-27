@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings ,SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -14,12 +14,17 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "/home/oxateeq/fyp/uploads"
 
     ALLOWED_ORIGINS: List[str] = []
-  
-  
+
+    # LLM API keys (optional — only needed for AI generation features)
+    GEMINI_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
+        extra="ignore",  # allow unknown env vars without failing
     )
 
     SECRET_KEY: str = "KEY HERE"

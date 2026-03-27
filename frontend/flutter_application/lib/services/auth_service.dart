@@ -10,7 +10,7 @@ class AuthService {
   // Replace with your backend URL.
   // For Android Emulator use 10.0.2.2 usually, but for physical device use your PC's IP.
   // iOS Simulator uses localhost.
-  final String baseUrl = 'http://192.168.1.8:8000/api/v1';
+  final String baseUrl = 'http://192.168.1.32:8000/api/v1';
   final _storage = const FlutterSecureStorage();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     // scopes: ['email'], // explicit scopes if needed

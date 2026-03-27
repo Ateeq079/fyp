@@ -1,12 +1,12 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class QuestionBase(BaseModel):
     question: str
     options: List[str]
-    correct_answer: str
+    correct_answer: str  # "A", "B", "C", or "D"
 
 
 class QuizBase(BaseModel):
@@ -23,7 +23,7 @@ class Quiz(QuizBase):
     user_id: int
     score: Optional[int] = None
     created_at: datetime
-    questions_data: List[QuestionBase]
+    questions_data: List[Dict[str, Any]]  # flexible — supports both formats
 
     class Config:
         from_attributes = True

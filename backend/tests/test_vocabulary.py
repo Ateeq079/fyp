@@ -8,6 +8,8 @@ Tests for vocabulary (dictionary) endpoints:
 import io
 
 
+from unittest.mock import patch
+
 def _upload_pdf(client, auth_headers, filename="test.pdf"):
     return client.post(
         "/api/v1/documents/upload",
@@ -19,11 +21,12 @@ def _upload_pdf(client, auth_headers, filename="test.pdf"):
 def _add_word(
     client, auth_headers, document_id, word="serendipity", context="Found in text"
 ):
-    return client.post(
-        "/api/v1/vocabulary/",
-        json={"word": word, "context_sentence": context, "document_id": document_id},
-        headers=auth_headers,
-    )
+    with patch("app.api.v1.vocabulary.llm_service.generate_word_definition", return_value=None):
+        return client.post(
+            "/api/v1/vocabulary/",
+            json={"word": word, "context_sentence": context, "document_id": document_id},
+            headers=auth_headers,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -66,11 +69,12 @@ def test_add_word_invalid_document(client, auth_headers):
 def test_add_word_no_context(client, auth_headers):
     """context_sentence is optional."""
     doc_id = _upload_pdf(client, auth_headers).json()["id"]
-    resp = client.post(
-        "/api/v1/vocabulary/",
-        json={"word": "ephemeral", "document_id": doc_id},
-        headers=auth_headers,
-    )
+    with patch("app.api.v1.vocabulary.llm_service.generate_word_definition", return_value=None):
+        resp = client.post(
+            "/api/v1/vocabulary/",
+            json={"word": "ephemeral", "document_id": doc_id},
+            headers=auth_headers,
+        )
     assert resp.status_code == 201
     assert resp.json()["context_sentence"] is None
 

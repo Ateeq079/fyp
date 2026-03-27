@@ -8,7 +8,6 @@ class Flashcard(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    highlight_id = Column(Integer, ForeignKey("highlights.id"), nullable=True)
     question = Column(String, nullable=False)
     answer = Column(String, nullable=False)
     
@@ -19,4 +18,3 @@ class Flashcard(Base):
     repetitions = Column(Integer, default=0)
 
     user = relationship("User", back_populates="flashcards")
-    highlight = relationship("Highlight", back_populates="flashcards")

@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../models/document_model.dart';
-import '../services/highlight_service.dart';
+import '../services/vocabulary_service.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final DocumentModel document;
@@ -16,12 +15,10 @@ class PdfViewerPage extends StatefulWidget {
 
 class _PdfViewerPageState extends State<PdfViewerPage> {
   final PdfViewerController _pdfController = PdfViewerController();
-  final _highlightService = HighlightService();
+  final _vocabularyService = VocabularyService();
 
   final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
 
-  bool _isDirty = false;
-  bool _isSaving = false;
   String _selectedText = '';
   bool _showMenu = false;
 
@@ -32,156 +29,55 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   }
 
   // ──────────────────────────────────────────────
-  //  Save annotated PDF back to server
-  // ──────────────────────────────────────────────
-
-  Future<void> _saveAnnotatedPdf() async {
-    setState(() => _isSaving = true);
-    try {
-      final List<int> bytes = await _pdfController.saveDocument();
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File(
-        '${tempDir.path}/annotated_${widget.document.id}.pdf',
-      );
-      await tempFile.writeAsBytes(bytes);
-
-      final result = await _highlightService.replaceDocument(
-        widget.document.id,
-        tempFile.path,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result != null
-                  ? 'Annotations saved!'
-                  : 'Save failed. Please try again.',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        if (result != null) setState(() => _isDirty = false);
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  //  Pop guard
-  // ──────────────────────────────────────────────
-
-  Future<bool> _confirmPop() async {
-    if (!_isDirty) return true;
-    final result = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Unsaved Annotations'),
-        content: const Text(
-          "You have highlights or underlines that haven't been saved yet.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'discard'),
-            child: const Text('Discard'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, 'save'),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    if (result == 'save') await _saveAnnotatedPdf();
-    return true;
-  }
-
-  // ──────────────────────────────────────────────
   //  Annotation helpers
   // ──────────────────────────────────────────────
 
-  void _applyHighlight() {
-    final bounds = _pdfViewerKey.currentState?.getSelectedTextLines();
-    if (bounds == null || bounds.isEmpty) return;
-    _pdfController.addAnnotation(
-      HighlightAnnotation(textBoundsCollection: bounds),
-    );
-    setState(() {
-      _isDirty = true;
-      _showMenu = false;
-    });
-    _showSnack('Text highlighted');
+  void _copyToClipboard() {
+    if (_selectedText.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: _selectedText));
+    setState(() => _showMenu = false);
+    _showSnack('Text copied to clipboard');
   }
 
-  void _applyUnderline() {
-    final bounds = _pdfViewerKey.currentState?.getSelectedTextLines();
-    if (bounds == null || bounds.isEmpty) return;
-    _pdfController.addAnnotation(
-      UnderlineAnnotation(textBoundsCollection: bounds),
-    );
-    setState(() {
-      _isDirty = true;
-      _showMenu = false;
-    });
-    _showSnack('Text underlined');
-  }
+  // ──────────────────────────────────────────────
+  //  Dictionary
+  // ──────────────────────────────────────────────
 
   Future<void> _addToDictionary() async {
     final word = _selectedText.trim();
     if (word.isEmpty) return;
     setState(() => _showMenu = false);
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Add to Dictionary'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    // Show a loading snackbar immediately since the LLM call takes a few seconds
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
           children: [
-            const Text('Save this word/phrase to your dictionary?'),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '"$word"',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
+            const SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Looking up definition for "$word"…')),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Add'),
-          ),
-        ],
+        duration: const Duration(seconds: 10), // Will be hidden manually
+        behavior: SnackBarBehavior.floating,
       ),
     );
 
-    if (confirmed == true && mounted) {
-      final ok = await _highlightService.saveToVocabulary(
-        word: word,
-        documentId: widget.document.id,
-      );
-      if (mounted) {
-        _showSnack(
-          ok ? '"$word" added to dictionary ✓' : 'Failed to save. Try again.',
-        );
-      }
-    }
+    final ok = await _vocabularyService.saveToVocabulary(
+      word: word,
+      documentId: widget.document.id,
+      // No definition passed here anymore; backend will use Gemini to generate it
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    _showSnack(
+      ok ? '"$word" added to dictionary ✓' : 'Failed to save "$word". Try again.',
+    );
   }
 
   void _showSnack(String msg) {
@@ -196,49 +92,22 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (!didPop) {
-          final ok = await _confirmPop();
-          if (ok && context.mounted) Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            widget.document.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: [
-            if (_isDirty)
-              _isSaving
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.save_outlined),
-                      tooltip: 'Save annotations',
-                      onPressed: () async {
-                        await _saveAnnotatedPdf();
-                        if (context.mounted) Navigator.of(context).pop();
-                      },
-                    ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.document.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        body: Stack(
+      ),
+      body: Stack(
           children: [
             // ── PDF Viewer ────────────────────────────────
             SfPdfViewer.network(
               widget.document.downloadUrl,
               key: _pdfViewerKey,
               controller: _pdfController,
+              canShowTextSelectionMenu: false,
               onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
                 final text = details.selectedText ?? '';
                 setState(() {
@@ -276,16 +145,10 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                             onTap: _addToDictionary,
                           ),
                           _MenuButton(
-                            icon: Icons.highlight,
-                            label: 'Highlight',
-                            color: Colors.amber.shade700,
-                            onTap: _applyHighlight,
-                          ),
-                          _MenuButton(
-                            icon: Icons.format_underlined,
-                            label: 'Underline',
-                            color: Colors.blue,
-                            onTap: _applyUnderline,
+                            icon: Icons.content_copy,
+                            label: 'Copy',
+                            color: Theme.of(context).colorScheme.secondary,
+                            onTap: _copyToClipboard,
                           ),
                           _MenuButton(
                             icon: Icons.close,
@@ -301,7 +164,6 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
               ),
           ],
         ),
-      ),
     );
   }
 }

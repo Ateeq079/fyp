@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../services/auth_service.dart';
-import '../services/document_service.dart';
-import '../widgets/home_views.dart';
+import '../services/vocabulary_service.dart';
+import '../models/vocabulary_model.dart';
+import '../models/document_model.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
 import 'help_page.dart';
+import 'profile_page.dart';
+import '../widgets/documents_view.dart';
+import '../widgets/quizzes_view.dart';
+import '../widgets/vocabulary_view.dart';
+import '../widgets/flashcards_view.dart';
+import '../services/document_service.dart';
+import '../services/auth_service.dart';
+import 'pdf_viewer_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,8 +35,8 @@ class _HomePageState extends State<HomePage> {
     _pages = [
       DocumentsView(key: _documentsKey),
       const QuizzesView(),
-      const HighlightsView(),
-      const ProfileView(),
+      const VocabularyView(),
+      const FlashcardsView(),
     ];
   }
 
@@ -50,7 +58,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              showSearch(context: context, delegate: _DocumentSearchDelegate());
+              showSearch(context: context, delegate: AppSearchDelegate());
             },
           ),
           IconButton(
@@ -100,6 +108,17 @@ class _HomePageState extends State<HomePage> {
               leading: const Icon(Icons.home_outlined),
               title: const Text('Home'),
               onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('My Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.settings_outlined),
@@ -161,14 +180,14 @@ class _HomePageState extends State<HomePage> {
             label: 'Quizzes',
           ),
           NavigationDestination(
-            icon: Icon(Icons.highlight_outlined),
-            selectedIcon: Icon(Icons.highlight),
-            label: 'Highlights',
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Dictionary',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+            icon: Icon(Icons.style_outlined),
+            selectedIcon: Icon(Icons.style),
+            label: 'Flashcards',
           ),
         ],
       ),
@@ -247,20 +266,23 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _DocumentSearchDelegate extends SearchDelegate<String> {
+class AppSearchDelegate extends SearchDelegate<String> {
+  final _docService = DocumentService();
+  final _vocabService = VocabularyService();
+
   @override
-  String get searchFieldLabel => 'Search documents…';
+  String get searchFieldLabel => 'Search LexiNote…';
 
   @override
   List<Widget> buildActions(BuildContext context) => [
-    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
-  ];
+        IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+      ];
 
   @override
   Widget buildLeading(BuildContext context) => IconButton(
-    icon: const Icon(Icons.arrow_back),
-    onPressed: () => close(context, ''),
-  );
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => close(context, ''),
+      );
 
   @override
   Widget buildResults(BuildContext context) => _buildSearchBody(context);
@@ -269,9 +291,83 @@ class _DocumentSearchDelegate extends SearchDelegate<String> {
   Widget buildSuggestions(BuildContext context) => _buildSearchBody(context);
 
   Widget _buildSearchBody(BuildContext context) {
-    if (query.isEmpty) {
-      return const Center(child: Text('Start typing to search documents'));
+    if (query.trim().isEmpty) {
+      return const Center(child: Text('Start typing to search…'));
     }
-    return Center(child: Text('No results found for "$query"'));
+
+    return FutureBuilder(
+      future: Future.wait([
+        _docService.getDocuments(),
+        _vocabService.getVocabulary(),
+      ]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final docs = snapshot.data![0] as List<DocumentModel>;
+        final words = snapshot.data![1] as List<VocabularyModel>;
+
+        final filteredDocs = docs
+            .where((d) => d.title.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+        final filteredWords = words
+            .where((w) =>
+                w.word.toLowerCase().contains(query.toLowerCase()) ||
+                (w.definition?.toLowerCase().contains(query.toLowerCase()) ??
+                    false))
+            .toList();
+
+        if (filteredDocs.isEmpty && filteredWords.isEmpty) {
+          return Center(child: Text('No results found for "$query"'));
+        }
+
+        return ListView(
+          children: [
+            if (filteredDocs.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text('DOCUMENTS',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+              ),
+              ...filteredDocs.map((doc) => ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: Text(doc.title),
+                    subtitle: Text(doc.fileSizeFormatted),
+                    onTap: () {
+                      close(context, '');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PdfViewerPage(document: doc),
+                        ),
+                      );
+                    },
+                  )),
+            ],
+            if (filteredWords.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text('DICTIONARY',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+              ),
+              ...filteredWords.map((word) => ListTile(
+                    leading: const Icon(Icons.menu_book_outlined),
+                    title: Text(word.word),
+                    subtitle: Text(word.definition ?? '',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    onTap: () {
+                      VocabularyView.showWordDetails(context, word);
+                    },
+                  )),
+            ],
+          ],
+        );
+      },
+    );
   }
 }

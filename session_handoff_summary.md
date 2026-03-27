@@ -1,44 +1,28 @@
 # LexiNote - Session Handoff Summary
-*Date: March 6, 2026*
+*Date: 25th March 2026*
 
 ## 🎯 Current Project Phase
-We are currently in the **Execution Phase** of developing the **PDF Reader and Dictionary** functionality. We have successfully wired up the new PDF Viewer, local annotations, and dictionary saving. 
+We recently completed a major **UI/UX refinement and AI integration phase** for the core learning loop: Highlights, Dictionary, and Flashcard generation functionalities.
 
 ## ✅ Accomplished in this Session
 
-### 1. Backend (FastAPI & PostgreSQL)
-*   **Database Schema Updates**: 
-    *   Refactored the `Vocabulary` model to link directly to `Document` (via `document_id`) rather than going through a `Highlight` model.
-    *   Added `user_id` and `created_at` fields to track personal dictionaries.
-    *   Restored the `flashcards` back-population relationship in the `Highlight` model to resolve SQLAlchemy mapping errors.
-*   **New API Endpoints**:
-    *   `POST /vocabulary/`: Saves a selected word and its context sentence to the user's dictionary.
-    *   `GET /vocabulary/` & `DELETE /vocabulary/{id}`: View and manage personal dictionary entries.
-    *   `PUT /documents/{id}/file`: Replaces the existing PDF stored on the server with a newly annotated version.
-*   **Tests**: Updated and passed all `pytest` suites successfully (54/54 tests passing).
+### 1. Dictionary & Vocabulary Refactoring (AI-Powered)
+*   **Database Fix**: Added the missing `definition` column directly to the live PostgreSQL `vocabularies` table via `ALTER TABLE`.
+*   **LLM Service Integration**: Configured `LLMService` to properly read `GEMINI_API_KEY` using an absolute `.env` resolution path, stripping problematic quote characters.
+*   **Zero-Click UX**: Removed the user-confirmation dialog and local `dictionaryapi.dev` network calls from the Flutter app's `pdf_viewer_page.dart`.
+*   **AI Context Generation**: The `POST /vocabulary/` backend endpoint now seamlessly intercepts the saved word, calls Gemini 2.5 Flash to generate a **student-friendly definition** and a **natural example sentence**, and saves it instantly.
 
-### 2. Frontend (Flutter)
-*   **PDF Viewer Integration**: 
-    *   Added the `syncfusion_flutter_pdfviewer` (^32.2.8) and `path_provider` packages.
-    *   Created `PdfViewerPage.dart`. It downloads and renders the PDF seamlessly.
-*   **Context Menu & Annotations**:
-    *   Implemented a floating context menu that appears upon text selection.
-    *   **Highlights & Underlines**: Applied locally using Syncfusion's `HighlightAnnotation` and `UnderlineAnnotation`. Captured boundaries using `_pdfViewerKey.currentState?.getSelectedTextLines()`.
-    *   **Added to Dictionary**: Sends the selected word to the backend.
-*   **Saving Changes**: 
-    *   Added a prompt when the user exits the PDF Viewer to ask if they want to save or discard their unsaved Highlights and Underlines.
-    *   Connected this to the `replaceDocument` API endpoint to overwrite the remote file with the newly generated PDF bytes.
-*   **Security & Interceptors**:
-    *   Added a global `navigatorKey` in `main.dart`.
-    *   Wired up `AuthService.handleUnauthorized()` across `DocumentService` and `HighlightService` to automatically trigger a logout and redirect the user back to the Login Screen gracefully when their JWT token expires (Catching `401 Unauthorized`).
-    *   Resolved all static analyzer checks (`flutter analyze`).
+### 2. Highlights Persistence
+*   **Missing API Endpoint**: Created and registered the `POST /api/v1/highlights/` endpoint to accept highlighted text from the document.
+*   **Instant Saving**: Wired the PDF Viewer's "Highlight" context menu button to silently hit the new backend endpoint, fully replacing the old stubbed data in the Highlights Tab.
 
-## 🚀 Next Steps to Pick Up Later
-When the next session begins, provide this prompt/summary to the AI to re-establish context. The immediate next goals are:
+### 3. Flashcards Generation Fixes
+*   **UI Wire-up**: Implemented the "Generate Flashcards" Extended FAB in the `FlashcardsView` in Flutter.
+*   **Crash Fix**: Resolved a 500 server error where the `generate_flashcards` backend logic incorrectly tried to read `highlight.text` instead of `highlight.content`. Generation works smoothly again.
 
-1.  **Frontend Verification**: The user needs to verify the dictionary API behavior using the app interface and ensure words appear in their profile.
-2.  **Vocabulary Screen**: Implement the UI to list the saved vocabulary words if not already done.
-3.  **Flashcards (Upcoming Phase)**: Begin planning the generation of flashcards mapping to the user's highlighted text and dictionary entries.
+## 🚀 Next Steps (Handoff Tasks)
+1.  **AI Quiz Generation (Backend)**: Add `POST /quiz/generate/{document_id}` in `app/api/v1/quiz.py` that similarly compiles vocab and highlights to generate multiple-choice questions via `LLMService`.
+2.  **Quiz UI (Frontend)**: Build out `QuizTakingPage` in Flutter to iterate through the generated quiz questions, handle selection state, and show a final score.
+3.  **Flashcard Review Loop Tweak**: Ensure `FlashcardReviewPage` appropriately handles edge cases (like server disconnects or invalid spaced repetition data).
 
----
-*End of Summary*
+All 66 backend tests currently pass, and the Flutter app builds cleanly `(0 errors, 2 info)`.

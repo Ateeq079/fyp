@@ -7,6 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.128.0",
     "google-auth>=2.48.0",
+    "langchain>=1.2.10",
+    "langchain-google-genai>=4.2.1",
+    "langchain-openai>=1.1.10",
     "passlib[bcrypt]>=1.7.4",
     "psycopg-binary>=3.3.2",
     "psycopg[binary]>=3.3.2",

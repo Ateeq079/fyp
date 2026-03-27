@@ -6,6 +6,7 @@ import '../widgets/custom_filled_button.dart';
 import '../widgets/custom_outlined_button.dart';
 import 'login_page.dart';
 import 'home_page.dart';
+import '../widgets/shared_ui.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -47,12 +48,7 @@ class _SignupPageState extends State<SignupPage> {
           (route) => false,
         );
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration failed. Please try again.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SharedUI.showSnackBar(context, 'Registration failed. Please try again.', isError: true);
       }
     }
   }
@@ -66,24 +62,14 @@ class _SignupPageState extends State<SignupPage> {
     setState(() => _isLoading = false);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Signed in with Google successfully!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SharedUI.showSnackBar(context, 'Signed in with Google successfully!');
       // Navigate to Home
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const HomePage()),
         (route) => false,
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Google sign-in failed. Please try again.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SharedUI.showSnackBar(context, 'Google sign-in failed. Please try again.', isError: true);
     }
   }
 

@@ -6,6 +6,7 @@ import '../widgets/custom_filled_button.dart';
 import '../widgets/custom_outlined_button.dart';
 import 'signup_page.dart';
 import 'home_page.dart';
+import '../widgets/shared_ui.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -45,12 +46,7 @@ class _LoginPageState extends State<LoginPage> {
           (route) => false,
         );
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login failed. Please check your credentials.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SharedUI.showSnackBar(context, 'Login failed. Please check your credentials.', isError: true);
       }
     }
   }
@@ -110,24 +106,14 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Signed in with Google successfully!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SharedUI.showSnackBar(context, 'Signed in with Google successfully!');
       // Navigate to Home
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const HomePage()),
         (route) => false,
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Google sign-in failed. Please try again.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SharedUI.showSnackBar(context, 'Google sign-in failed. Please try again.', isError: true);
     }
   }
 
