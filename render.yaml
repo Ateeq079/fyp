@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: smart-pdf-backend
+    runtime: docker
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "*"
+    healthCheckPath: /api/v1/health # Ensure this endpoint exists

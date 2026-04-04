@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Smart PDF Reader API"
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
-    UPLOAD_DIR: str = "/home/oxateeq/fyp/uploads"
+    UPLOAD_DIR: str = "uploads"  # Relative to app root
 
     ALLOWED_ORIGINS: List[str] = []
 
@@ -20,11 +20,19 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
 
+    # Database Configuration (supports individual fields or a full URL)
+    DATABASE_URL: Optional[str] = None
+    DB_HOST: Optional[str] = None
+    DB_PORT: Optional[int] = 5432
+    DB_NAME: Optional[str] = None
+    DB_USER: Optional[str] = None
+    DB_PASSWORD: Optional[str] = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore",  # allow unknown env vars without failing
+        extra="ignore",
     )
 
     SECRET_KEY: str = "KEY HERE"
