@@ -1,32 +1,47 @@
-from typing import List, Optional
-from pydantic_settings import BaseSettings ,SettingsConfigDict
+from typing import List, Optional, Union
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+import json
 
 class Settings(BaseSettings):
-    DB_HOST : str
-    DB_PORT: int
-    DB_NAME: str
-    DB_USER: str
-    DB_PASSWORD: str
-
+    # App Settings
     APP_NAME: str = "Smart PDF Reader API"
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
-    UPLOAD_DIR: str = "uploads"  # Relative to app root
+    UPLOAD_DIR: str = "uploads"
 
+    # CORS Settings - handles both list and comma-separated string
     ALLOWED_ORIGINS: List[str] = []
 
-    # LLM API keys (optional — only needed for AI generation features)
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, str) and v.startswith("["):
+            try:
+                return json.loads(v)
+            except:
+                return [v]
+        return v
+
+    # LLM API keys
     GEMINI_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
 
-    # Database Configuration (supports individual fields or a full URL)
+    # Database Configuration
     DATABASE_URL: Optional[str] = None
     DB_HOST: Optional[str] = None
     DB_PORT: Optional[int] = 5432
     DB_NAME: Optional[str] = None
     DB_USER: Optional[str] = None
     DB_PASSWORD: Optional[str] = None
+
+    # Auth Settings
+    SECRET_KEY: str = "KEY HERE"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -35,9 +50,4 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    SECRET_KEY: str = "KEY HERE"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
 settings = Settings()
-
