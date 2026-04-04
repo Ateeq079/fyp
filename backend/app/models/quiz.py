@@ -7,7 +7,7 @@ class Quiz(Base):
     __tablename__ = "quizzes"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
     score = Column(Integer, nullable=True)
     total_questions = Column(Integer, nullable=False)

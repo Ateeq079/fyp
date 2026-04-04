@@ -6,13 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.deps import get_db
 from app.models.user import User
-from app.schemas.token import TokenPayload
 
-oauth2_scheme = (
-    OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token")
-    if hasattr(settings, "API_V1_STR")
-    else OAuth2PasswordBearer(tokenUrl="/api/v1/login/access-token")
-)
+# Since we don't handle login in FastAPI anymore, this is just to extract the Bearer token from the header securely
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="dummy_token_url_for_swagger", auto_error=False)
 
 
 def get_current_user(
@@ -23,19 +19,41 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not token:
+        raise credentials_exception
+        
     try:
+        # Supabase uses the JWT Secret to sign the HS256 token
+        secret = settings.SUPABASE_JWT_SECRET or settings.SECRET_KEY
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token, secret, algorithms=["HS256"], options={"verify_aud": False}
         )
-        username: str = payload.get("sub")
-        if username is None:
+        user_uuid: str = payload.get("sub")
+        user_email: str = payload.get("email")
+        
+        if user_uuid is None:
             raise credentials_exception
-        token_data = TokenPayload(sub=username)
-    except (JWTError, ValidationError):
+            
+    except (JWTError, ValidationError) as e:
+        print(f"JWT Validation Error: {e}")
         raise credentials_exception
-    user = db.query(User).filter(User.id == int(token_data.sub)).first()
+
+    user = db.query(User).filter(User.id == user_uuid).first()
+    
+    # Auto-Sync User from Supabase
     if user is None:
-        raise credentials_exception
+        if not user_email:
+            raise credentials_exception
+            
+        user = User(
+            id=user_uuid,
+            email=user_email,
+            is_active=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
     return user
 
 

@@ -8,7 +8,7 @@ class Vocabulary(Base):
     __tablename__ = "vocabularies"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
     word = Column(String, index=True, nullable=False)
     definition = Column(String, nullable=True)

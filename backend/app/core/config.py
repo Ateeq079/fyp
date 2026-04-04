@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         elif isinstance(v, str) and v.startswith("["):
             try:
                 return json.loads(v)
-            except:
+            except Exception:
                 return [v]
         return v
 
@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     DB_PASSWORD: Optional[str] = None
 
     # Auth Settings
+    SUPABASE_JWT_SECRET: Optional[str] = None
     SECRET_KEY: str = "KEY HERE"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30

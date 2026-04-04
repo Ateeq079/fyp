@@ -7,7 +7,7 @@ class Flashcard(Base):
     __tablename__ = "flashcards"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     question = Column(String, nullable=False)
     answer = Column(String, nullable=False)
     
