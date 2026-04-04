@@ -24,6 +24,6 @@ RUN mkdir -p /app/uploads
 # Expose the default Render port
 EXPOSE 10000
 
-# Start the application using gunicorn with uvicorn workers for production
-# Render automatically provides the PORT environment variable
-CMD ["uv", "run", "gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:10000"]
+# Start the application using raw uvicorn to save memory on the Free Tier
+# Render automatically maps the exposed port
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
