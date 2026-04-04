@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'constants.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
-import 'services/auth_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await Supabase.initialize(
+    url: AppConstants.supabaseUrl,
+    anonKey: AppConstants.supabaseAnonKey,
+  );
+  
   runApp(const LexiNoteApp());
 }
 
@@ -38,8 +45,7 @@ class LexiNoteApp extends StatelessWidget {
   }
 }
 
-/// Checks for a valid stored token on startup.
-/// Routes to [HomePage] if already logged in, otherwise to [LoginPage].
+/// Listens to Supabase Auth state changes and routes accordingly.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -51,18 +57,20 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
-  }
-
-  Future<void> _checkAuth() async {
-    final loggedIn = await AuthService().isLoggedIn();
-    if (!mounted) return;
-    // Replace this route entirely so Back doesn't return to the splash
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => loggedIn ? const HomePage() : const LoginPage(),
-      ),
-    );
+    // Start listening to auth state changes soon as app starts
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (!mounted) return;
+      if (session != null) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      }
+    });
   }
 
   @override

@@ -1,38 +1,24 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import '../pages/login_page.dart';
 
 class AuthService {
-  // Replace with your backend URL.
-  // For Android Emulator use 10.0.2.2 usually, but for physical device use your PC's IP.
-  // iOS Simulator uses localhost.
-  final String baseUrl = 'http://192.168.1.32:8000/api/v1';
-  final _storage = const FlutterSecureStorage();
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    // scopes: ['email'], // explicit scopes if needed
-  );
+  final SupabaseClient _client = Supabase.instance.client;
 
   Future<bool> login(String email, String password) async {
-    final url = Uri.parse('$baseUrl/login/access-token');
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {'username': email, 'password': password},
+      final response = await _client.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
       );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        await _storage.write(key: 'access_token', value: data['access_token']);
+      if (response.session != null) {
         return true;
-      } else {
-        debugPrint('Login failed: ${response.body}');
-        return false;
       }
+      return false;
+    } on AuthException catch (e) {
+      debugPrint('Login Auth error: ${e.message}');
+      return false;
     } catch (e) {
       debugPrint('Login error: $e');
       return false;
@@ -40,20 +26,23 @@ class AuthService {
   }
 
   Future<bool> register(String email, String password) async {
-    final url = Uri.parse('$baseUrl/users/');
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email, 'password': password}),
+      // Supabase signUp returns AuthResponse
+      final response = await _client.auth.signUp(
+        email: email.trim(),
+        password: password,
       );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      
+      // If auto-confirm is enabled in Supabase, session holds the JWT
+      // If email confirmation is required, session may be null but user is created.
+      // Usually signup succeeds if no exception is thrown
+      if (response.user != null) {
         return true;
-      } else {
-        debugPrint('Registration failed: ${response.body}');
-        return false;
       }
+      return false;
+    } on AuthException catch (e) {
+      debugPrint('Registration Auth error: ${e.message}');
+      return false;
     } catch (e) {
       debugPrint('Registration error: $e');
       return false;
@@ -61,38 +50,9 @@ class AuthService {
   }
 
   Future<bool> googleLogin() async {
+    // We will revisit Google login. For now it triggers Supabase OAuth process.
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // User canceled the sign-in
-        return false;
-      }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final String? idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        debugPrint('Google ID Token is null');
-        return false;
-      }
-
-      // Send ID token to backend
-      final url = Uri.parse('$baseUrl/login/google');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'token': idToken}),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        await _storage.write(key: 'access_token', value: data['access_token']);
-        return true;
-      } else {
-        debugPrint('Backend Google Login failed: ${response.body}');
-        return false;
-      }
+      return await _client.auth.signInWithOAuth(OAuthProvider.google);
     } catch (e) {
       debugPrint('Google Login error: $e');
       return false;
@@ -100,8 +60,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'access_token');
-    await _googleSignIn.signOut();
+    await _client.auth.signOut();
   }
 
   Future<void> handleUnauthorized() async {
@@ -112,37 +71,8 @@ class AuthService {
     );
   }
 
-  Future<String?> getToken() async {
-    return await _storage.read(key: 'access_token');
-  }
-
-  /// Returns true if there is a valid, non-expired JWT token stored.
+  /// Returns true if there is a valid session
   Future<bool> isLoggedIn() async {
-    final token = await _storage.read(key: 'access_token');
-    if (token == null || token.isEmpty) return false;
-    try {
-      // Decode payload without a library (JWT = header.payload.sig, base64url encoded)
-      final parts = token.split('.');
-      if (parts.length != 3) return false;
-
-      // Pad base64 to a multiple of 4
-      String pad(String s) {
-        final rem = s.length % 4;
-        return rem == 0 ? s : s + '=' * (4 - rem);
-      }
-
-      final payloadJson = utf8.decode(base64Url.decode(pad(parts[1])));
-      final payload = json.decode(payloadJson) as Map<String, dynamic>;
-      final exp = payload['exp'] as int?;
-      if (exp == null) return false;
-
-      final expiry = DateTime.fromMillisecondsSinceEpoch(
-        exp * 1000,
-        isUtc: true,
-      );
-      return DateTime.now().toUtc().isBefore(expiry);
-    } catch (_) {
-      return false;
-    }
+    return _client.auth.currentSession != null;
   }
 }

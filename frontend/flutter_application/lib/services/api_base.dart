@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../constants.dart';
 
 abstract class BaseApiService {
-  final String baseUrl = 'http://192.168.1.32:8000/api/v1'; // Matches AuthService
-  final _authService = AuthService();
+  final String baseUrl = AppConstants.apiUrl;
 
   Future<Map<String, String>> get _headers async {
-    final token = await _authService.getToken();
+    final session = Supabase.instance.client.auth.currentSession;
+    final token = session?.accessToken;
+    
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
