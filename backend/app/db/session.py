@@ -13,19 +13,23 @@ else:
         f"{settings.DB_PORT}/{settings.DB_NAME}"
     )
 
-
 # Ensure the driver is specified for SQLAlchemy if not present
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
 elif not DATABASE_URL.startswith("postgresql+psycopg://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-
-engine = create_engine(DATABASE_URL, echo=True)
-
+# Configure the engine for production
+# echo=settings.DEBUG: Only print SQL in debug mode
+# pool_pre_ping=True: Essential for connection poolers like Supavisor (Port 6543)
+engine = create_engine(
+    DATABASE_URL, 
+    echo=settings.DEBUG,
+    pool_pre_ping=True
+)
 
 SessionLocal = sessionmaker(
-    autocommit = False,
+    autocommit=False,
     autoflush=False,
-    bind = engine
+    bind=engine
 )
