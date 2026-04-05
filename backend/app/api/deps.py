@@ -3,12 +3,23 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+import requests
+
 from app.core.config import settings
 from app.db.deps import get_db
 from app.models.user import User
 
 # Since we don't handle login in FastAPI anymore, this is just to extract the Bearer token from the header securely
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="dummy_token_url_for_swagger", auto_error=False)
+
+_JWKS_CACHE = {}
+
+def get_jwks(jwks_url: str):
+    if jwks_url not in _JWKS_CACHE:
+        response = requests.get(jwks_url, timeout=10)
+        response.raise_for_status()
+        _JWKS_CACHE[jwks_url] = response.json()
+    return _JWKS_CACHE[jwks_url]
 
 
 def get_current_user(
@@ -23,16 +34,33 @@ def get_current_user(
         raise credentials_exception
         
     try:
-        # Supabase uses the JWT Secret to sign the HS256 token
-        secret = settings.SUPABASE_JWT_SECRET or settings.SECRET_KEY
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg", "HS256")
         
-        if not secret or secret == "KEY HERE":
-            print("WARNING: SUPABASE_JWT_SECRET is not set. Auth will fail.")
+        if alg in ["RS256", "ES256"]:
+            # Asymmetric verification via JWKS
+            unverified_claims = jwt.get_unverified_claims(token)
+            iss = unverified_claims.get("iss")
+            if not iss:
+                print("Missing 'iss' in JWT claims")
+                raise credentials_exception
+                
+            jwks_url = f"{iss.rstrip('/')}/.well-known/jwks.json"
+            try:
+                secret = get_jwks(jwks_url)
+            except Exception as e:
+                print(f"Failed to fetch JWKS from {jwks_url}: {e}")
+                raise credentials_exception
+        else:
+            # Symmetric verification (Legacy GoTrue setup)
+            secret = settings.SUPABASE_JWT_SECRET or settings.SECRET_KEY
+            if not secret or secret == "KEY HERE":
+                print("WARNING: SUPABASE_JWT_SECRET is not set. Auth will fail.")
 
         payload = jwt.decode(
             token, 
             secret, 
-            algorithms=["HS256", "HS384", "HS512"], 
+            algorithms=["HS256", "HS384", "HS512", "RS256", "ES256"], 
             options={"verify_aud": False}
         )
         user_uuid: str = payload.get("sub")
@@ -43,10 +71,12 @@ def get_current_user(
             
     except (JWTError, ValidationError) as e:
         print(f"JWT Validation Error [{type(e).__name__}]: {e}")
-        # Try to peak at the token header to see the 'alg' if verification failed
+        # Try to peak at the token header and claims to see the 'alg' and 'iss'
         try:
             header = jwt.get_unverified_header(token)
+            claims = jwt.get_unverified_claims(token)
             print(f"Token Header: {header}")
+            print(f"Token Claims: {claims}")
         except Exception:
             pass
         raise credentials_exception
