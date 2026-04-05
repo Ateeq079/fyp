@@ -25,8 +25,15 @@ def get_current_user(
     try:
         # Supabase uses the JWT Secret to sign the HS256 token
         secret = settings.SUPABASE_JWT_SECRET or settings.SECRET_KEY
+        
+        if not secret or secret == "KEY HERE":
+            print("WARNING: SUPABASE_JWT_SECRET is not set. Auth will fail.")
+
         payload = jwt.decode(
-            token, secret, algorithms=["HS256"], options={"verify_aud": False}
+            token, 
+            secret, 
+            algorithms=["HS256", "HS384", "HS512"], 
+            options={"verify_aud": False}
         )
         user_uuid: str = payload.get("sub")
         user_email: str = payload.get("email")
@@ -35,7 +42,13 @@ def get_current_user(
             raise credentials_exception
             
     except (JWTError, ValidationError) as e:
-        print(f"JWT Validation Error: {e}")
+        print(f"JWT Validation Error [{type(e).__name__}]: {e}")
+        # Try to peak at the token header to see the 'alg' if verification failed
+        try:
+            header = jwt.get_unverified_header(token)
+            print(f"Token Header: {header}")
+        except Exception:
+            pass
         raise credentials_exception
 
     user = db.query(User).filter(User.id == user_uuid).first()

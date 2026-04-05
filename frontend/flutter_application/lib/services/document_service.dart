@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/document_model.dart';
 import 'api_base.dart';
 
@@ -13,7 +14,14 @@ class DocumentService extends BaseApiService {
   /// Upload a PDF file. Returns the created [DocumentModel] or null on failure.
   Future<DocumentModel?> uploadDocument(String filePath) async {
     try {
-      final token = await (this as dynamic)._authService.getToken();
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+      
+      if (token == null) {
+        debugPrint('Upload error: No active session/token found');
+        return null;
+      }
+
       final file = File(filePath);
       final filename = file.path.split('/').last;
 
