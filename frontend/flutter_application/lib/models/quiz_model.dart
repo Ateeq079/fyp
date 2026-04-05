@@ -32,7 +32,7 @@ class QuizQuestion {
 
 class QuizModel {
   final int id;
-  final int userId;
+  final String userId;
   final String title;
   final int totalQuestions;
   final int? score;
@@ -53,7 +53,7 @@ class QuizModel {
     final rawQuestions = json['questions_data'] as List<dynamic>;
     return QuizModel(
       id: json['id'] as int,
-      userId: json['user_id'] as int,
+      userId: json['user_id'] as String,
       title: json['title'] as String,
       totalQuestions: json['total_questions'] as int,
       score: json['score'] as int?,

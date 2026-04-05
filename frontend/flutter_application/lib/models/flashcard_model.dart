@@ -1,6 +1,6 @@
 class FlashcardModel {
   final int id;
-  final int userId;
+  final String userId;
   final int? highlightId;
   final String question;
   final String answer;
@@ -24,7 +24,7 @@ class FlashcardModel {
   factory FlashcardModel.fromJson(Map<String, dynamic> json) {
     return FlashcardModel(
       id: json['id'] as int,
-      userId: json['user_id'] as int,
+      userId: json['user_id'] as String,
       highlightId: json['highlight_id'] as int?,
       question: json['question'] as String,
       answer: json['answer'] as String,

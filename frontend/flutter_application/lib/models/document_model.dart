@@ -1,6 +1,6 @@
 class DocumentModel {
   final int id;
-  final int userId;
+  final String userId;
   final String title;
   final String originalFilename;
   final int fileSize;
@@ -20,7 +20,7 @@ class DocumentModel {
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
     return DocumentModel(
       id: json['id'] as int,
-      userId: json['user_id'] as int,
+      userId: json['user_id'] as String,
       title: json['title'] as String,
       originalFilename: json['original_filename'] as String,
       fileSize: json['file_size'] as int,
