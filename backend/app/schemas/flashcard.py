@@ -18,7 +18,7 @@ class FlashcardReview(BaseModel):
 
 class Flashcard(FlashcardBase):
     id: int
-    user_id: int
+    user_id: str
     highlight_id: Optional[int] = None
     next_review_date: datetime
     ease_factor: int

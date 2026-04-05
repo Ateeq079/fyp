@@ -20,7 +20,7 @@ class QuizCreate(QuizBase):
 
 class Quiz(QuizBase):
     id: int
-    user_id: int
+    user_id: str
     score: Optional[int] = None
     created_at: datetime
     questions_data: List[Dict[str, Any]]  # flexible — supports both formats

@@ -21,7 +21,7 @@ class DocumentUpdate(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: str
     title: str
     original_filename: str
     file_size: int

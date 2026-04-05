@@ -45,14 +45,14 @@ from pathlib import Path
 from app.core.config import settings
 
 
-def _user_dir(user_id: int) -> Path:
+def _user_dir(user_id: str) -> Path:
     """Return (and create if needed) the per-user upload directory."""
     path = Path(settings.UPLOAD_DIR) / str(user_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def save_file(user_id: int, original_filename: str, data: bytes) -> tuple[str, str]:
+def save_file(user_id: str, original_filename: str, data: bytes) -> tuple[str, str]:
     """
     Save *data* to local disk.
 
