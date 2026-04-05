@@ -4,6 +4,7 @@ import '../services/document_service.dart';
 import '../pages/pdf_viewer_page.dart';
 import 'document_card.dart';
 import 'shared_ui.dart';
+import 'study_summary_header.dart'; // Import the new header
 
 class DocumentsView extends StatefulWidget {
   const DocumentsView({super.key});
@@ -63,6 +64,10 @@ class DocumentsViewState extends State<DocumentsView> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          // --- Study Stats Header ---
+          const SliverToBoxAdapter(
+            child: StudySummaryHeader(),
+          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'shared_ui.dart';
 
 class DocumentCard extends StatelessWidget {
   final int index;
@@ -22,53 +23,55 @@ class DocumentCard extends StatelessWidget {
     final displayTitle = title ?? 'Document ${index + 1}';
     final displaySubtitle = subtitle ?? '';
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.picture_as_pdf,
-                    size: 48,
-                    color: colorScheme.primary,
-                  ),
+    return SoftCard(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceTint.withOpacity(0.05),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  size: 42,
+                  color: colorScheme.primary.withOpacity(0.7),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                displayTitle,
-                style: Theme.of(context).textTheme.titleSmall,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              if (displaySubtitle.isNotEmpty)
-                Text(
-                  displaySubtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayTitle,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (displaySubtitle.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    displaySubtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

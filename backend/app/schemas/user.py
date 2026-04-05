@@ -20,9 +20,19 @@ class UserDelete(UserBase):
 
 
 class UserResponse(UserBase):
-    id: int
+    id: str  # Change to str since we use UUIDs (String(36))
     is_active: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserStatsResponse(BaseModel):
+    total_documents: int
+    total_vocabulary: int
+    total_quizzes: int
+    average_quiz_score: float
+    flashcards_due: int
+    mastered_words: int
+    study_streak_days: int

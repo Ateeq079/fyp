@@ -69,4 +69,41 @@ class DocumentService extends BaseApiService {
     final response = await delete('/documents/$documentId');
     return response.statusCode == 240 || response.statusCode == 204;
   }
+
+  // ──────────────────────────────────────────────
+  //  Update File (Annotations)
+  // ──────────────────────────────────────────────
+
+  /// Replace document file with an annotated one.
+  Future<bool> updateDocumentFile(int documentId, List<int> bytes, String filename) async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+      if (token == null) return false;
+
+      final request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/documents/$documentId/file'))
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: filename,
+          ),
+        );
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        debugPrint('File update successful for doc: $documentId');
+        return true;
+      } else {
+         debugPrint('File update failed with status: ${response.statusCode}');
+         return false;
+      }
+    } catch (e) {
+      debugPrint('Update file error: $e');
+      return false;
+    }
+  }
 }

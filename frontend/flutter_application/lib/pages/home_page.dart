@@ -47,11 +47,13 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       // --- Top Navigation Bar ---
       appBar: AppBar(
+        centerTitle: true,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.auto_stories_rounded, color: colorScheme.primary),
             const SizedBox(width: 8),
-            const Text('LexiNote'),
+            Text('LexiNote', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -164,6 +166,9 @@ class _HomePageState extends State<HomePage> {
       body: _pages[_selectedIndex],
       // --- Bottom Navigation Bar ---
       bottomNavigationBar: NavigationBar(
+        elevation: 0,
+        backgroundColor: colorScheme.surface,
+        indicatorColor: colorScheme.primaryContainer,
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);

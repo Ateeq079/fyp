@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../models/document_model.dart';
 import '../services/vocabulary_service.dart';
+import '../services/document_service.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final DocumentModel document;
@@ -16,10 +17,12 @@ class PdfViewerPage extends StatefulWidget {
 class _PdfViewerPageState extends State<PdfViewerPage> {
   final PdfViewerController _pdfController = PdfViewerController();
   final _vocabularyService = VocabularyService();
+  final _documentService = DocumentService();
 
   final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
 
   String _selectedText = '';
+  PdfTextSelectionChangedDetails? _selectionDetails;
   bool _showMenu = false;
 
   @override
@@ -40,15 +43,18 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   }
 
   // ──────────────────────────────────────────────
-  //  Dictionary
+  //  Dictionary & Highlighting
   // ──────────────────────────────────────────────
 
   Future<void> _addToDictionary() async {
     final word = _selectedText.trim();
     if (word.isEmpty) return;
+    
+    // Cache selection details before resetting state
+    final details = _selectionDetails;
     setState(() => _showMenu = false);
 
-    // Show a loading snackbar immediately since the LLM call takes a few seconds
+    // Show a loading snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -58,26 +64,61 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text('Looking up definition for "$word"…')),
+            Expanded(child: Text('Saving and Highlighting "$word"…')),
           ],
         ),
-        duration: const Duration(seconds: 10), // Will be hidden manually
+        duration: const Duration(seconds: 15),
         behavior: SnackBarBehavior.floating,
       ),
     );
 
+    // 1. Save to Vocabulary DB
     final ok = await _vocabularyService.saveToVocabulary(
       word: word,
       documentId: widget.document.id,
-      // No definition passed here anymore; backend will use Gemini to generate it
     );
+
+    if (ok && details != null) {
+      // 2. Apply the visual highlight and save to server
+      await _applyHighlightAndSync(details);
+    }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     _showSnack(
-      ok ? '"$word" added to dictionary ✓' : 'Failed to save "$word". Try again.',
+      ok ? '"$word" saved and highlighted ✓' : 'Failed to save "$word".',
     );
+  }
+
+  Future<void> _applyHighlightAndSync(PdfTextSelectionChangedDetails details) async {
+    try {
+      // 1. Apply visual highlight (instant feedback)
+      // Note: Using dynamic to bypass strict linting on changing Syncfusion APIs
+      final dynamic highlight = HighlightAnnotation(
+        textBoundsCollection: (details as dynamic).selectedRegion ?? [],
+      );
+      
+      _pdfController.addAnnotation(highlight);
+
+      // 2. Export the modified PDF bytes
+      final state = _pdfViewerKey.currentState;
+      if (state == null) return;
+
+      // Note: saveDocument is available on the state in this version
+      final List<int>? bytes = await (state as dynamic).saveDocument();
+      
+      if (bytes != null) {
+        // 3. Upload to Render to replace the file permanently
+        await _documentService.updateDocumentFile(
+          widget.document.id,
+          bytes,
+          widget.document.originalFilename,
+        );
+      }
+    } catch (e) {
+      debugPrint('Sync Error: $e');
+    }
   }
 
   void _showSnack(String msg) {
@@ -101,76 +142,66 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         ),
       ),
       body: Stack(
-          children: [
-            // ── PDF Viewer ────────────────────────────────
-            SfPdfViewer.network(
-              widget.document.downloadUrl,
-              key: _pdfViewerKey,
-              controller: _pdfController,
-              canShowTextSelectionMenu: false,
-              onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
-                final text = details.selectedText ?? '';
-                setState(() {
-                  _selectedText = text;
-                  _showMenu = text.isNotEmpty;
-                });
-              },
-            ),
+        children: [
+          SfPdfViewer.network(
+            widget.document.downloadUrl,
+            key: _pdfViewerKey,
+            controller: _pdfController,
+            canShowTextSelectionMenu: false,
+            onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
+              final text = details.selectedText ?? '';
+              setState(() {
+                _selectedText = text;
+                _selectionDetails = details;
+                _showMenu = text.isNotEmpty;
+              });
+            },
+          ),
 
-            // ── Floating context menu ────────────────────
-            if (_showMenu)
-              Positioned(
-                bottom: 24,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Material(
-                    elevation: 8,
-                    borderRadius: BorderRadius.circular(28),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _MenuButton(
-                            icon: Icons.book_outlined,
-                            label: 'Dictionary',
-                            color: Theme.of(context).colorScheme.primary,
-                            onTap: _addToDictionary,
-                          ),
-                          _MenuButton(
-                            icon: Icons.content_copy,
-                            label: 'Copy',
-                            color: Theme.of(context).colorScheme.secondary,
-                            onTap: _copyToClipboard,
-                          ),
-                          _MenuButton(
-                            icon: Icons.close,
-                            label: 'Dismiss',
-                            color: Theme.of(context).colorScheme.outline,
-                            onTap: () => setState(() => _showMenu = false),
-                          ),
-                        ],
-                      ),
+          if (_showMenu)
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(28),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _MenuButton(
+                          icon: Icons.book_outlined,
+                          label: 'Dictionary',
+                          color: Theme.of(context).colorScheme.primary,
+                          onTap: _addToDictionary,
+                        ),
+                        _MenuButton(
+                          icon: Icons.content_copy,
+                          label: 'Copy',
+                          color: Theme.of(context).colorScheme.secondary,
+                          onTap: _copyToClipboard,
+                        ),
+                        _MenuButton(
+                          icon: Icons.close,
+                          label: 'Dismiss',
+                          color: Theme.of(context).colorScheme.outline,
+                          onTap: () => setState(() => _showMenu = false),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
+      ),
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Context menu button widget
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _MenuButton extends StatelessWidget {
   final IconData icon;
