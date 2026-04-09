@@ -50,7 +50,7 @@ class LLMService:
         if google_key:
             clean_key = google_key.strip('"\' ')
             return ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",  # Using Flash for better speed/cost balance
+                model="gemini-2.5-flash",  # Using 2.5 Flash for better speed/cost balance
                 temperature=0.2,
                 google_api_key=clean_key,
                 max_output_tokens=max_tokens
