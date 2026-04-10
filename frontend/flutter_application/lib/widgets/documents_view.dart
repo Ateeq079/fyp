@@ -112,6 +112,7 @@ class DocumentsViewState extends State<DocumentsView> {
                     index: index,
                     title: doc.title,
                     subtitle: doc.fileSizeFormatted,
+                    downloadUrl: doc.downloadUrl,
                     onTap: () {
                       Navigator.push(
                         context,

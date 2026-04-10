@@ -16,8 +16,15 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 def _build_response(request: Request, doc: Document) -> DocumentResponse:
     """Convert a DB Document row into a DocumentResponse with a full download URL."""
-    base_url = str(request.base_url).rstrip("/")
-    download_url = f"{base_url}/files/{doc.file_path}"
+    from app.core.config import settings
+    
+    if settings.SUPABASE_URL:
+        bucket = "lexinote-documents"
+        download_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{doc.file_path}"
+    else:
+        base_url = str(request.base_url).rstrip("/")
+        download_url = f"{base_url}/files/{doc.file_path}"
+        
     return DocumentResponse(
         id=doc.id,
         user_id=doc.user_id,

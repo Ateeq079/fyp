@@ -41,12 +41,12 @@ CURRENT IMPLEMENTATION: Local filesystem under settings.UPLOAD_DIR.
 
 import os
 import uuid
+import httpx
 from pathlib import Path
 from app.core.config import settings
 
-
 def _user_dir(user_id: str) -> Path:
-    """Return (and create if needed) the per-user upload directory."""
+    """Return (and create if needed) the per-user upload directory (fallback)."""
     path = Path(settings.UPLOAD_DIR) / str(user_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -54,31 +54,42 @@ def _user_dir(user_id: str) -> Path:
 
 def save_file(user_id: str, original_filename: str, data: bytes) -> tuple[str, str]:
     """
-    Save *data* to local disk.
-
-    Returns
-    -------
-    (file_path, stored_filename)
-        file_path      – relative path stored in the DB  (e.g. "3/a1b2c3.pdf")
-        stored_filename – the UUID-based filename on disk
+    Save *data* to Supabase Storage (if configured) or local disk (fallback).
     """
     ext = Path(original_filename).suffix.lower() or ".pdf"
     stored_filename = f"{uuid.uuid4().hex}{ext}"
-    dest = _user_dir(user_id) / stored_filename
-    dest.write_bytes(data)
+    file_path = f"{user_id}/{stored_filename}"
+
+    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/lexinote-documents/{file_path}"
+        headers = {
+            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+            "Content-Type": "application/pdf",
+        }
+        res = httpx.post(url, headers=headers, content=data)
+        res.raise_for_status()
+    else:
+        dest = _user_dir(user_id) / stored_filename
+        dest.write_bytes(data)
+
     # Store relative path so it's portable
-    return f"{user_id}/{stored_filename}", stored_filename
+    return file_path, stored_filename
 
 
 def delete_file(file_path: str) -> None:
     """
-    Remove a file from local storage.
-
+    Remove a file from Supabase or local storage.
     *file_path* is the relative path returned by save_file(), e.g. "3/abc.pdf".
-    Silently ignores missing files.
     """
-    full_path = Path(settings.UPLOAD_DIR) / file_path
-    try:
-        full_path.unlink()
-    except FileNotFoundError:
-        pass
+    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/lexinote-documents/{file_path}"
+        headers = {
+            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+        }
+        httpx.delete(url, headers=headers)
+    else:
+        full_path = Path(settings.UPLOAD_DIR) / file_path
+        try:
+            full_path.unlink()
+        except FileNotFoundError:
+            pass

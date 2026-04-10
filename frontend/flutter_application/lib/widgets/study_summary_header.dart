@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/stats_service.dart';
 import 'shared_ui.dart';
 
@@ -21,12 +22,26 @@ class _StudySummaryHeaderState extends State<StudySummaryHeader> {
   }
 
   Future<void> _loadStats() async {
-    final stats = await _statsService.getUserStats();
-    if (mounted) {
-      setState(() {
-        _stats = stats;
-        _loading = false;
-      });
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+      return;
+    }
+
+    try {
+      final stats = await _statsService.getUserStats();
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
