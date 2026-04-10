@@ -7,6 +7,16 @@ import '../services/vocabulary_service.dart';
 import '../services/document_service.dart';
 import '../services/pdf_cache_service.dart';
 
+// ──────────────────────────────────────────────
+//  Immutable data object for the selection state
+// ──────────────────────────────────────────────
+class _SelectionState {
+  final String text;
+  final PdfTextSelectionChangedDetails? details;
+  const _SelectionState({this.text = '', this.details});
+  bool get hasText => text.isNotEmpty;
+}
+
 class PdfViewerPage extends StatefulWidget {
   final DocumentModel document;
 
@@ -22,15 +32,13 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   final _documentService = DocumentService();
   final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
 
-  // Cache state
+  // Cache state — drives setState only during loading/error, NOT during selection
   String? _localFilePath;
   bool _cacheLoading = true;
   String? _cacheError;
 
-  // Selection state
-  String _selectedText = '';
-  PdfTextSelectionChangedDetails? _selectionDetails;
-  bool _showMenu = false;
+  // ── Selection state: ValueNotifier so SfPdfViewer is NEVER rebuilt on select
+  final _selection = ValueNotifier<_SelectionState>(const _SelectionState());
 
   @override
   void initState() {
@@ -41,6 +49,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   @override
   void dispose() {
     _pdfController.dispose();
+    _selection.dispose();
     super.dispose();
   }
 
@@ -69,9 +78,10 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   // ──────────────────────────────────────────────
 
   void _copyToClipboard() {
-    if (_selectedText.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: _selectedText));
-    setState(() => _showMenu = false);
+    final text = _selection.value.text;
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    _selection.value = const _SelectionState(); // hide menu
     _showSnack('Text copied to clipboard');
   }
 
@@ -80,11 +90,11 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   // ──────────────────────────────────────────────
 
   Future<void> _addToDictionary() async {
-    final word = _selectedText.trim();
+    final word = _selection.value.text.trim();
+    final details = _selection.value.details;
     if (word.isEmpty) return;
 
-    final details = _selectionDetails;
-    setState(() => _showMenu = false);
+    _selection.value = const _SelectionState(); // hide menu immediately
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -223,67 +233,78 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       );
     }
 
-    // Render PDF from local cached file
+    // Render PDF from local cached file.
+    // RepaintBoundary isolates the PDF render layer from the rest of the tree
+    // so the selection menu overlay never triggers a PDF repaint.
     return Stack(
       children: [
-        SfPdfViewer.file(
-          File(_localFilePath!),
-          key: _pdfViewerKey,
-          controller: _pdfController,
-          canShowTextSelectionMenu: false,
-          canShowScrollHead: false,
-          pageSpacing: 4.0,
-          onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
-            final text = details.selectedText ?? '';
-            if (text != _selectedText) {
-              setState(() {
-                _selectedText = text;
-                _selectionDetails = details;
-                _showMenu = text.isNotEmpty;
-              });
-            }
-          },
+        RepaintBoundary(
+          child: SfPdfViewer.file(
+            File(_localFilePath!),
+            key: _pdfViewerKey,
+            controller: _pdfController,
+            canShowTextSelectionMenu: false,
+            canShowScrollHead: false,
+            canShowPaginationDialog: false,
+            canShowScrollStatus: false,
+            pageSpacing: 4.0,
+            onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
+              final text = details.selectedText ?? '';
+              // Only update the notifier when the selection actually changes —
+              // this never triggers a setState on the parent widget.
+              if (text != _selection.value.text) {
+                _selection.value = _SelectionState(text: text, details: details);
+              }
+            },
+          ),
         ),
 
-        if (_showMenu)
-          Positioned(
-            bottom: 24,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(28),
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _MenuButton(
-                        icon: Icons.book_outlined,
-                        label: 'Dictionary',
-                        color: Theme.of(context).colorScheme.primary,
-                        onTap: _addToDictionary,
-                      ),
-                      _MenuButton(
-                        icon: Icons.content_copy,
-                        label: 'Copy',
-                        color: Theme.of(context).colorScheme.secondary,
-                        onTap: _copyToClipboard,
-                      ),
-                      _MenuButton(
-                        icon: Icons.close,
-                        label: 'Dismiss',
-                        color: Theme.of(context).colorScheme.outline,
-                        onTap: () => setState(() => _showMenu = false),
-                      ),
-                    ],
+        // ValueListenableBuilder rebuilds ONLY this small overlay, never SfPdfViewer
+        ValueListenableBuilder<_SelectionState>(
+          valueListenable: _selection,
+          builder: (context, state, _) {
+            if (!state.hasText) return const SizedBox.shrink();
+
+            return Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(28),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _MenuButton(
+                          icon: Icons.book_outlined,
+                          label: 'Dictionary',
+                          color: Theme.of(context).colorScheme.primary,
+                          onTap: _addToDictionary,
+                        ),
+                        _MenuButton(
+                          icon: Icons.content_copy,
+                          label: 'Copy',
+                          color: Theme.of(context).colorScheme.secondary,
+                          onTap: _copyToClipboard,
+                        ),
+                        _MenuButton(
+                          icon: Icons.close,
+                          label: 'Dismiss',
+                          color: Theme.of(context).colorScheme.outline,
+                          onTap: () => _selection.value = const _SelectionState(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
+        ),
       ],
     );
   }
